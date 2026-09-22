@@ -1,0 +1,38 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /sharers/{uid} {
+
+      // Chacun peut toujours lire/écrire son propre document (activer/désactiver
+      // son partage, mettre à jour sa position).
+      // Le compte propriétaire (remplace OWNER_UID_ICI par ton UID Firebase) peut
+      // lire un document appartenant à quelqu'un d'autre UNIQUEMENT si sharing == true
+      // au moment de la lecture. Dès que la personne repasse sharing à false,
+      // cette condition n'est plus remplie et le document devient invisible pour
+      // le propriétaire, immédiatement.
+      allow read: if request.auth != null && (
+                     request.auth.uid == uid ||
+                     (request.auth.uid == "G7LZitKvjsbsJdqcfakRS4EmG7r1" && resource.data.sharing == true)
+                   );
+
+      // Seule la personne elle-même peut créer ou modifier son propre document.
+      // Le propriétaire ne peut jamais écrire dans le document de quelqu'un d'autre :
+      // il ne peut ni forcer l'activation du partage, ni modifier une position.
+      allow create, update, delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Anti-vol personnel : un document par compte (son propre téléphone).
+    // Seul ce même compte — depuis l'app Android ou depuis antivol-dashboard.html —
+    // peut lire ou écrire son document. Personne d'autre n'y a accès.
+    match /devices/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Tout le reste est refusé par défaut.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
